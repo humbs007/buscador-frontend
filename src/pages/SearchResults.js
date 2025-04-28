@@ -1,22 +1,29 @@
 import React, { useState } from 'react';
-import ExportButtons from '../components/ExportButtons';
+import { Container, Typography } from '@mui/material';
+import SearchForm from '../components/SearchForm';
+import ResultTabs from '../components/ResultTabs';
+import { searchFonte } from '../services/api';
 
 function SearchResults() {
-  const [searchParams, setSearchParams] = useState({
-    table_name: 'table_enel_energia', // exemplo default
-    field: 'PN_CPF',
-    operator: '=',
-    term: '12345678900'
-  });
+  const [results, setResults] = useState([]);
+
+  const handleSearch = async (params) => {
+    const response = await searchFonte(params);
+    setResults(response.data);
+  };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h2>Resultados da Pesquisa</h2>
-      {/* Aqui poderiam aparecer os resultados */}
-      
-      {/* Botões de Exportação */}
-      <ExportButtons searchParams={searchParams} />
-    </div>
+    <Container sx={{ mt: 5 }}>
+      <Typography variant="h4" gutterBottom>
+        Busca Avançada
+      </Typography>
+
+      <SearchForm onSearch={handleSearch} />
+
+      {results.length > 0 && (
+        <ResultTabs results={results} />
+      )}
+    </Container>
   );
 }
 
