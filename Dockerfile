@@ -1,12 +1,20 @@
-FROM node:20-alpine
+# frontend/Dockerfile
+FROM node:18-alpine
 
+# Definir diretório de trabalho
 WORKDIR /app
 
-COPY package*.json ./
+# Copiar arquivos
+COPY package.json .
+COPY package-lock.json .
+COPY ./public ./public
+COPY ./src ./src
+
+# Instalar dependências
 RUN npm install
 
-COPY . .
+# Expor porta padrão React
+EXPOSE 3000
 
-RUN npm audit fix || true
-
+# Comando inicial
 CMD ["npm", "start"]
