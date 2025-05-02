@@ -9,24 +9,23 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Buscador Inteligente</title>
-        <meta name="description" content="Sistema de busca de dados ENEL, META e CREDLINK" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Buscador Multi-Dados • V3</title>
+        <meta name="description" content="Sistema de busca em múltiplas fontes com filtros inteligentes." />
+        <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 6 }}>
+      <Container maxWidth="lg" sx={{ mt: 4 }}>
         <Paper elevation={3} sx={{ p: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Buscador de Dados Inteligente
-          </Typography>
-
-          <Typography variant="body1" gutterBottom>
-            Selecione uma tabela, um campo indexado e insira o valor de busca. Os resultados serão exibidos abaixo, separados por abas.
-          </Typography>
-
-          <Box mt={4}>
-            <SearchForm />
+          <Box sx={{ textAlign: 'center', mb: 3 }}>
+            <Typography variant="h4" component="h1" gutterBottom>
+              🔍 Buscador Inteligente V3
+            </Typography>
+            <Typography variant="subtitle1">
+              Selecione uma fonte de dados, configure os filtros e consulte resultados em tempo real.
+            </Typography>
           </Box>
+
+          <SearchForm />
         </Paper>
       </Container>
     </>
