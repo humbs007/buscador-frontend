@@ -1,105 +1,166 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import ResultTabs from './ResultTabs';
 import {
-  Box, Button, MenuItem, Select, TextField, InputLabel, FormControl, Typography
+  Box,
+  Button,
+  MenuItem,
+  Select,
+  TextField,
+  InputLabel,
+  FormControl,
+  CircularProgress,
+  Typography,
+  Alert
 } from '@mui/material';
-
-const FIELD_LABELS = {
-  "PN_CPF": "CPF (ENEL)",
-  "PN_CNPJ": "CNPJ (ENEL)",
-  "CPF": "CPF",
-  "CONSUMO": "Consumo (META)",
-  "CELULAR1": "Celular 1",
-  "TEL_FIXO1": "Telefone Fixo 1",
-  "NOME": "Nome Completo",
-  "NOME_MAE": "Nome da Mãe",
-  "DT_NASCIMENTO": "Data de Nascimento",
-  "RENDA_PRESUMIDA": "Renda Presumida"
-};
-
-const mapLabel = (field) => FIELD_LABELS[field] || field.replace(/_/g, ' ').toUpperCase();
+import ResultTabs from './ResultTabs';
+import ExportButton from './ExportButton';
+import { getFriendlyLabel, getTableLabel } from '../lib/labels';
 
 export default function SearchForm() {
   const [tables, setTables] = useState([]);
-  const [fields, setFields] = useState([]);
   const [selectedTable, setSelectedTable] = useState('');
+  const [fields, setFields] = useState([]);
   const [selectedField, setSelectedField] = useState('');
   const [operator, setOperator] = useState('=');
   const [term, setTerm] = useState('');
   const [results, setResults] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    axios.get('http://localhost:8000/metadata/')
+    axios.get('/api/v1/tables')
       .then(res => {
-        const tableList = Object.keys(res.data.tables);
-        setTables(tableList);
+        const data = res.data.tables || [];
+        setTables(['TODAS', ...data]);
+      })
+      .catch(err => {
+        setError('Erro ao carregar as tabelas.');
+        console.error(err);
       });
   }, []);
 
   useEffect(() => {
     if (selectedTable) {
-      axios.get('http://localhost:8000/metadata/')
-        .then(res => {
-          const fieldsRaw = res.data.tables[selectedTable];
-          setFields(fieldsRaw || []);
-        });
+      if (selectedTable === 'TODAS') {
+        axios.get('/api/v1/tables/fields/comuns')
+          .then(res => setFields(res.data.fields))
+          .catch(err => {
+            setError('Erro ao carregar campos comuns.');
+            console.error(err);
+          });
+      } else {
+        axios.get(`/api/v1/tables/${selectedTable}/fields`)
+          .then(res => setFields(res.data.fields))
+          .catch(err => {
+            setError('Erro ao carregar campos.');
+            console.error(err);
+          });
+      }
+    } else {
+      setFields([]);
     }
   }, [selectedTable]);
 
   const handleSearch = (option) => {
-    const payload = option === 'option1'
-      ? {
-          tables: selectedTable === "TODAS" ? ["table_enel", "table_meta", "table_credlink"] : [selectedTable],
-          field: selectedField,
-          operator,
-          term
-        }
-      : { number: term };
+    if (!selectedField || !term) return;
+    setIsLoading(true);
+    setError('');
+    setResults(null);
 
-    axios.post(`http://localhost:8000/search/${option}`, payload)
+    const payload = option === 'fonte'
+      ? { table_name: selectedTable, field: selectedField, operator, term }
+      : { term };
+
+    const endpoint = option === 'fonte'
+      ? '/api/v1/search/fonte'
+      : '/api/v1/search/geral';
+
+    axios.post(endpoint, payload)
       .then(res => setResults(res.data.results))
-      .catch(err => console.error('[SEARCH ERROR]', err));
+      .catch(err => {
+        setError('Erro ao buscar dados. Verifique os parâmetros.');
+        console.error(err);
+      })
+      .finally(() => setIsLoading(false));
   };
 
   return (
-    <Box sx={{ p: 2 }}>
-      <Typography variant="h5" gutterBottom>🔎 Buscador Multi Dados</Typography>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h6" gutterBottom>Busca Inteligente</Typography>
 
       <FormControl fullWidth sx={{ mb: 2 }}>
         <InputLabel>Tabela</InputLabel>
-        <Select value={selectedTable} label="Tabela" onChange={e => setSelectedTable(e.target.value)}>
+        <Select
+          value={selectedTable}
+          label="Tabela"
+          onChange={e => setSelectedTable(e.target.value)}
+        >
           {tables.map((table, idx) => (
-            <MenuItem key={idx} value={table}>{table.replace("table_", "").toUpperCase()}</MenuItem>
+            <MenuItem key={idx} value={table}>
+              {getTableLabel(table)}
+            </MenuItem>
           ))}
         </Select>
       </FormControl>
 
       <FormControl fullWidth sx={{ mb: 2 }}>
         <InputLabel>Campo</InputLabel>
-        <Select value={selectedField} label="Campo" onChange={e => setSelectedField(e.target.value)}>
+        <Select
+          value={selectedField}
+          label="Campo"
+          onChange={e => setSelectedField(e.target.value)}
+        >
           {fields.map((field, idx) => (
-            <MenuItem key={idx} value={field}>{mapLabel(field)}</MenuItem>
+            <MenuItem key={idx} value={field}>
+              {getFriendlyLabel(selectedTable, field)}
+            </MenuItem>
           ))}
         </Select>
       </FormControl>
 
       <FormControl fullWidth sx={{ mb: 2 }}>
         <InputLabel>Operador</InputLabel>
-        <Select value={operator} label="Operador" onChange={e => setOperator(e.target.value)}>
-          {['=', '!=', '>', '<', '>=', '<='].map((op, idx) => (
+        <Select
+          value={operator}
+          label="Operador"
+          onChange={e => setOperator(e.target.value)}
+        >
+          {['=', '!=', '>=', '<=', '>', '<'].map((op, idx) => (
             <MenuItem key={idx} value={op}>{op}</MenuItem>
           ))}
         </Select>
       </FormControl>
 
-      <TextField fullWidth label="Valor da Busca" value={term} onChange={e => setTerm(e.target.value)} sx={{ mb: 2 }} />
+      <TextField
+        fullWidth
+        label="Valor da Busca"
+        value={term}
+        onChange={e => setTerm(e.target.value)}
+        sx={{ mb: 2 }}
+      />
 
       <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-        <Button variant="contained" onClick={() => handleSearch('option1')}>Pesquisar Opção 1</Button>
-        <Button variant="outlined" onClick={() => handleSearch('option2')}>Pesquisar Geral</Button>
+        <Button
+          variant="contained"
+          onClick={() => handleSearch('fonte')}
+          disabled={isLoading || !selectedTable || !selectedField || !term}
+        >
+          Pesquisar Fonte
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={() => handleSearch('geral')}
+          disabled={isLoading || !term}
+        >
+          Pesquisar Geral
+        </Button>
+        {results && (
+          <ExportButton results={results} />
+        )}
       </Box>
 
+      {isLoading && <CircularProgress />}
+      {error && <Alert severity="error">{error}</Alert>}
       {results && <ResultTabs data={results} />}
     </Box>
   );
