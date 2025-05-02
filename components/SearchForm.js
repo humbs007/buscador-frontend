@@ -8,6 +8,7 @@ import {
 import ResultTabs from './ResultTabs';
 import ExportButton from './ExportButton';
 import { getFriendlyLabel, getTableLabel } from '../lib/labels';
+import { logInfo, logError } from '../lib/logger';
 
 export default function SearchForm() {
   const [tables, setTables] = useState([]);
@@ -20,20 +21,19 @@ export default function SearchForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Carrega tabelas
   useEffect(() => {
     axios.get('/api/v1/tables')
       .then(res => {
         const data = res.data.tables || [];
         setTables(['TODAS', ...Object.keys(data)]);
+        logInfo('Tabelas carregadas com sucesso', data);
       })
       .catch(err => {
         setError('Erro ao carregar as tabelas.');
-        console.error(err);
+        logError('Erro ao carregar tabelas', err);
       });
   }, []);
 
-  // Carrega campos ao selecionar tabela
   useEffect(() => {
     if (selectedTable) {
       const url = selectedTable === 'TODAS'
@@ -41,10 +41,13 @@ export default function SearchForm() {
         : `/api/v1/tables/${selectedTable}/fields`;
 
       axios.get(url)
-        .then(res => setFields(res.data.fields))
+        .then(res => {
+          setFields(res.data.fields);
+          logInfo(`Campos carregados para ${selectedTable}`, res.data.fields);
+        })
         .catch(err => {
           setError('Erro ao carregar campos.');
-          console.error(err);
+          logError(`Erro ao carregar campos da tabela ${selectedTable}`, err);
         });
     } else {
       setFields([]);
@@ -64,10 +67,13 @@ export default function SearchForm() {
       : { term };
 
     axios.post(endpoint, payload)
-      .then(res => setResults(res.data.results))
+      .then(res => {
+        setResults(res.data.results);
+        logInfo(`Busca ${type === 'fonte' ? 'por fonte' : 'geral'} retornou resultados`, res.data.results);
+      })
       .catch(err => {
         setError('Erro ao buscar dados.');
-        console.error(err);
+        logError(`Erro ao buscar dados (${type})`, err);
       })
       .finally(() => setIsLoading(false));
   };
@@ -107,7 +113,13 @@ export default function SearchForm() {
         </Select>
       </FormControl>
 
-      <TextField fullWidth label="Valor da Busca" value={term} onChange={e => setTerm(e.target.value)} sx={{ mb: 2 }} />
+      <TextField
+        fullWidth
+        label="Valor da Busca"
+        value={term}
+        onChange={e => setTerm(e.target.value)}
+        sx={{ mb: 2 }}
+      />
 
       <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
         <Button
