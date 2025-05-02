@@ -1,5 +1,3 @@
-// frontend/components/ResultTabs.js
-
 import React from 'react';
 import PropTypes from 'prop-types';
 import {
@@ -23,8 +21,8 @@ function TabPanel(props) {
     <div
       role="tabpanel"
       hidden={value !== index}
-      id={`result-tabpanel-${index}`}
-      aria-labelledby={`result-tab-${index}`}
+      id={`tabpanel-${index}`}
+      aria-labelledby={`tab-${index}`}
       {...other}
     >
       {value === index && (
@@ -38,28 +36,28 @@ function TabPanel(props) {
 
 TabPanel.propTypes = {
   children: PropTypes.node,
-  index: PropTypes.number.isRequired,
-  value: PropTypes.number.isRequired
+  value: PropTypes.number.isRequired,
+  index: PropTypes.number.isRequired
 };
 
 function a11yProps(index) {
   return {
-    id: `result-tab-${index}`,
-    'aria-controls': `result-tabpanel-${index}`
+    id: `tab-${index}`,
+    'aria-controls': `tabpanel-${index}`
   };
 }
 
 export default function ResultTabs({ data }) {
-  const [value, setValue] = React.useState(0);
+  const [tabIndex, setTabIndex] = React.useState(0);
   const tableNames = Object.keys(data);
 
-  const handleChange = (event, newValue) => {
-    setValue(newValue);
+  const handleChange = (event, newIndex) => {
+    setTabIndex(newIndex);
   };
 
   const renderTable = (rows, tableKey) => {
     if (!rows || rows.length === 0) {
-      return <Typography variant="body1">Sem resultados para essa tabela.</Typography>;
+      return <Typography>Nenhum resultado encontrado.</Typography>;
     }
 
     const columns = Object.keys(rows[0]);
@@ -70,7 +68,9 @@ export default function ResultTabs({ data }) {
           <TableHead>
             <TableRow>
               {columns.map((col) => (
-                <TableCell key={col}>{getFriendlyLabel(tableKey, col)}</TableCell>
+                <TableCell key={col}>
+                  {getFriendlyLabel(tableKey, col)}
+                </TableCell>
               ))}
             </TableRow>
           </TableHead>
@@ -78,7 +78,9 @@ export default function ResultTabs({ data }) {
             {rows.map((row, idx) => (
               <TableRow key={idx}>
                 {columns.map((col) => (
-                  <TableCell key={col}>{String(row[col] ?? '')}</TableCell>
+                  <TableCell key={col}>
+                    {String(row[col] ?? '')}
+                  </TableCell>
                 ))}
               </TableRow>
             ))}
@@ -90,20 +92,25 @@ export default function ResultTabs({ data }) {
 
   return (
     <Box sx={{ width: '100%' }}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-        <Tabs value={value} onChange={handleChange} variant="scrollable" scrollButtons="auto">
-          {tableNames.map((tableName, index) => (
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs
+          value={tabIndex}
+          onChange={handleChange}
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          {tableNames.map((table, index) => (
             <Tab
-              key={index}
-              label={getTableLabel(tableName)}
+              key={table}
+              label={getTableLabel(table)}
               {...a11yProps(index)}
             />
           ))}
         </Tabs>
       </Box>
-      {tableNames.map((tableName, index) => (
-        <TabPanel key={index} value={value} index={index}>
-          {renderTable(data[tableName], tableName)}
+      {tableNames.map((table, index) => (
+        <TabPanel key={table} value={tabIndex} index={index}>
+          {renderTable(data[table], table)}
         </TabPanel>
       ))}
     </Box>

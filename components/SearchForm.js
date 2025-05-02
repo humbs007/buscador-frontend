@@ -1,16 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
-  Box,
-  Button,
-  MenuItem,
-  Select,
-  TextField,
-  InputLabel,
-  FormControl,
-  CircularProgress,
-  Typography,
-  Alert
+  Box, Button, MenuItem, Select, TextField,
+  InputLabel, FormControl, CircularProgress,
+  Typography, Alert
 } from '@mui/material';
 import ResultTabs from './ResultTabs';
 import ExportButton from './ExportButton';
@@ -27,83 +20,65 @@ export default function SearchForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Carrega tabelas
   useEffect(() => {
     axios.get('/api/v1/tables')
       .then(res => {
         const data = res.data.tables || [];
-        setTables(['TODAS', ...data]);
+        setTables(['TODAS', ...Object.keys(data)]);
       })
       .catch(err => {
-        setError('Erro ao carregar as tabelas do servidor.');
+        setError('Erro ao carregar as tabelas.');
         console.error(err);
       });
   }, []);
 
+  // Carrega campos ao selecionar tabela
   useEffect(() => {
-    if (!selectedTable) {
+    if (selectedTable) {
+      const url = selectedTable === 'TODAS'
+        ? '/api/v1/tables/fields/comuns'
+        : `/api/v1/tables/${selectedTable}/fields`;
+
+      axios.get(url)
+        .then(res => setFields(res.data.fields))
+        .catch(err => {
+          setError('Erro ao carregar campos.');
+          console.error(err);
+        });
+    } else {
       setFields([]);
-      return;
     }
-
-    const endpoint = selectedTable === 'TODAS'
-      ? '/api/v1/tables/fields/comuns'
-      : `/api/v1/tables/${selectedTable}/fields`;
-
-    axios.get(endpoint)
-      .then(res => {
-        const data = res.data.fields || [];
-        setFields(data);
-      })
-      .catch(err => {
-        setError('Erro ao carregar os campos da tabela selecionada.');
-        console.error(err);
-      });
   }, [selectedTable]);
 
-  const handleSearch = (option) => {
+  const handleSearch = (type) => {
+    if (!term || (type === 'fonte' && (!selectedTable || !selectedField))) return;
+
     setIsLoading(true);
     setError('');
     setResults(null);
 
-    const payload = option === 'fonte'
-      ? {
-          table_name: selectedTable,
-          field: selectedField,
-          operator,
-          term
-        }
+    const endpoint = type === 'fonte' ? '/api/v1/search/fonte' : '/api/v1/search/geral';
+    const payload = type === 'fonte'
+      ? { table_name: selectedTable, field: selectedField, operator, term }
       : { term };
 
-    const endpoint = option === 'fonte'
-      ? '/api/v1/search/fonte'
-      : '/api/v1/search/geral';
-
     axios.post(endpoint, payload)
-      .then(res => {
-        setResults(res.data.results);
-      })
+      .then(res => setResults(res.data.results))
       .catch(err => {
-        setError('Erro ao buscar os dados. Verifique os parâmetros e tente novamente.');
+        setError('Erro ao buscar dados.');
         console.error(err);
       })
-      .finally(() => {
-        setIsLoading(false);
-      });
+      .finally(() => setIsLoading(false));
   };
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        🔎 Busca Inteligente
-      </Typography>
+      <Typography variant="h6" gutterBottom>🔎 Busca Inteligente</Typography>
 
       <FormControl fullWidth sx={{ mb: 2 }}>
         <InputLabel>Tabela</InputLabel>
-        <Select
-          value={selectedTable}
-          label="Tabela"
-          onChange={e => setSelectedTable(e.target.value)}
-        >
+        <Select value={selectedTable} onChange={e => setSelectedTable(e.target.value)}>
           {tables.map((table, idx) => (
             <MenuItem key={idx} value={table}>
               {getTableLabel(table)}
@@ -114,12 +89,7 @@ export default function SearchForm() {
 
       <FormControl fullWidth sx={{ mb: 2 }}>
         <InputLabel>Campo</InputLabel>
-        <Select
-          value={selectedField}
-          label="Campo"
-          onChange={e => setSelectedField(e.target.value)}
-          disabled={!selectedTable}
-        >
+        <Select value={selectedField} onChange={e => setSelectedField(e.target.value)}>
           {fields.map((field, idx) => (
             <MenuItem key={idx} value={field}>
               {getFriendlyLabel(selectedTable, field)}
@@ -130,41 +100,31 @@ export default function SearchForm() {
 
       <FormControl fullWidth sx={{ mb: 2 }}>
         <InputLabel>Operador</InputLabel>
-        <Select
-          value={operator}
-          label="Operador"
-          onChange={e => setOperator(e.target.value)}
-        >
+        <Select value={operator} onChange={e => setOperator(e.target.value)}>
           {['=', '!=', '>=', '<=', '>', '<'].map((op, idx) => (
             <MenuItem key={idx} value={op}>{op}</MenuItem>
           ))}
         </Select>
       </FormControl>
 
-      <TextField
-        fullWidth
-        label="Valor da Busca"
-        value={term}
-        onChange={e => setTerm(e.target.value)}
-        sx={{ mb: 2 }}
-      />
+      <TextField fullWidth label="Valor da Busca" value={term} onChange={e => setTerm(e.target.value)} sx={{ mb: 2 }} />
 
       <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
         <Button
           variant="contained"
-          disabled={!selectedTable || !selectedField || !term || isLoading}
           onClick={() => handleSearch('fonte')}
+          disabled={!selectedTable || !selectedField || !term || isLoading}
         >
-          Pesquisar Fonte
+          Buscar por Fonte
         </Button>
         <Button
           variant="outlined"
-          disabled={!term || isLoading}
           onClick={() => handleSearch('geral')}
+          disabled={!term || isLoading}
         >
-          Pesquisa Geral
+          Buscar Geral
         </Button>
-        {results && <ExportButton data={results} />}
+        {results && <ExportButton results={results} />}
       </Box>
 
       {isLoading && <CircularProgress />}
