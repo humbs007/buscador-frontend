@@ -10,6 +10,13 @@ import ExportButton from './ExportButton';
 import { getFriendlyLabel, getTableLabel } from '../lib/labels';
 import { logInfo, logError } from '../lib/logger';
 
+const FIELD_MAPPINGS_TODAS = {
+  'CPF/CNPJ': ['CPF', 'CNPJ', 'PN_CPF', 'PN_CNPJ'],
+  'UF Geral': ['UF', 'PN_UF', 'ESTADO'],
+  'Bairro Geral': ['BAIRRO', 'Distrito', 'OL_Bairro_ObjLig'],
+  'CONSUMOS META': ['CONSUMO1','CONSUMO2','CONSUMO3','CONSUMO4','CONSUMO5','CONSUMO6','CONSUMO7','CONSUMO8','CONSUMO9','CONSUMO10']
+};
+
 export default function SearchForm() {
   const [tables, setTables] = useState([]);
   const [selectedTable, setSelectedTable] = useState('');
@@ -25,7 +32,7 @@ export default function SearchForm() {
     axios.get('/api/v1/tables')
       .then(res => {
         const data = res.data.tables || [];
-        setTables(['TODAS', ...Object.keys(data)]);
+        setTables(['TODAS', ...data]);
         logInfo('Tabelas carregadas com sucesso', data);
       })
       .catch(err => {
@@ -40,10 +47,23 @@ export default function SearchForm() {
         ? '/api/v1/tables/fields/comuns'
         : `/api/v1/tables/${selectedTable}/fields`;
 
+      setSelectedField('');
+      setFields([]);
+
       axios.get(url)
         .then(res => {
-          setFields(res.data.fields);
-          logInfo(`Campos carregados para ${selectedTable}`, res.data.fields);
+          let baseFields = res.data.fields || [];
+
+          if (selectedTable === 'TODAS' || selectedTable === 'table_meta') {
+            baseFields = [
+              ...baseFields,
+              ...Object.keys(FIELD_MAPPINGS_TODAS)
+            ];
+          }
+
+          const uniqueFields = [...new Set(baseFields)];
+          setFields(uniqueFields);
+          logInfo(`Campos carregados para ${selectedTable}`, uniqueFields);
         })
         .catch(err => {
           setError('Erro ao carregar campos.');
@@ -51,8 +71,13 @@ export default function SearchForm() {
         });
     } else {
       setFields([]);
+      setSelectedField('');
     }
   }, [selectedTable]);
+
+  const resolveMappedFields = (field) => {
+    return FIELD_MAPPINGS_TODAS[field] || [field];
+  };
 
   const handleSearch = (type) => {
     if (!term || (type === 'fonte' && (!selectedTable || !selectedField))) return;
@@ -61,10 +86,22 @@ export default function SearchForm() {
     setError('');
     setResults(null);
 
-    const endpoint = type === 'fonte' ? '/api/v1/search/fonte' : '/api/v1/search/geral';
+    const endpoint = type === 'fonte'
+      ? '/api/v1/search/option1'
+      : '/api/v1/search/option2';
+
+    const mappedFields = resolveMappedFields(selectedField);
+
     const payload = type === 'fonte'
-      ? { table_name: selectedTable, field: selectedField, operator, term }
-      : { term };
+      ? {
+          tables: selectedTable === 'TODAS'
+            ? ['table_credlink', 'table_enel', 'table_meta']
+            : [selectedTable],
+          field: mappedFields[0], // 🔁 apenas o primeiro para consulta direta
+          operator,
+          term
+        }
+      : { number: term };
 
     axios.post(endpoint, payload)
       .then(res => {
@@ -95,7 +132,11 @@ export default function SearchForm() {
 
       <FormControl fullWidth sx={{ mb: 2 }}>
         <InputLabel>Campo</InputLabel>
-        <Select value={selectedField} onChange={e => setSelectedField(e.target.value)}>
+        <Select
+          value={selectedField}
+          onChange={e => setSelectedField(e.target.value)}
+          disabled={fields.length === 0}
+        >
           {fields.map((field, idx) => (
             <MenuItem key={idx} value={field}>
               {getFriendlyLabel(selectedTable, field)}

@@ -1,7 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    reactStrictMode: true
+  reactStrictMode: true,
+  async rewrites() {
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: 'http://localhost:8000/api/v1/:path*' // proxy para o backend FastAPI
+      }
+    ]
   }
-  
-  module.exports = nextConfig
-  
+}
+
+module.exports = nextConfig

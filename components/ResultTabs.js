@@ -1,36 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import {
-  Box,
-  Tab,
-  Tabs,
-  Typography,
-  Table,
-  TableHead,
-  TableBody,
-  TableCell,
-  TableRow,
-  Paper
+  Box, Tab, Tabs, Typography, Card, CardContent,
+  Grid, Pagination
 } from '@mui/material';
 import { getFriendlyLabel, getTableLabel } from '../lib/labels';
 
-function TabPanel(props) {
-  const { children, value, index, ...other } = props;
+const PAGE_SIZE = 100;
 
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`tabpanel-${index}`}
-      aria-labelledby={`tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 2 }}>
-          {children}
-        </Box>
-      )}
-    </div>
+function TabPanel({ children, value, index }) {
+  return value === index && (
+    <Box sx={{ p: 2 }}>
+      {children}
+    </Box>
   );
 }
 
@@ -40,79 +22,55 @@ TabPanel.propTypes = {
   index: PropTypes.number.isRequired
 };
 
-function a11yProps(index) {
-  return {
-    id: `tab-${index}`,
-    'aria-controls': `tabpanel-${index}`
-  };
-}
-
 export default function ResultTabs({ data }) {
-  const [tabIndex, setTabIndex] = React.useState(0);
+  const [tabIndex, setTabIndex] = useState(0);
+  const [page, setPage] = useState(1);
   const tableNames = Object.keys(data);
-
-  const handleChange = (event, newIndex) => {
-    setTabIndex(newIndex);
+  const handleChangeTab = (event, newValue) => {
+    setTabIndex(newValue);
+    setPage(1);
   };
 
-  const renderTable = (rows, tableKey) => {
-    if (!rows || rows.length === 0) {
-      return <Typography>Nenhum resultado encontrado.</Typography>;
-    }
-
-    const columns = Object.keys(rows[0]);
-
-    return (
-      <Paper variant="outlined" sx={{ width: '100%', overflowX: 'auto' }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              {columns.map((col) => (
-                <TableCell key={col}>
-                  {getFriendlyLabel(tableKey, col)}
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map((row, idx) => (
-              <TableRow key={idx}>
-                {columns.map((col) => (
-                  <TableCell key={col}>
-                    {String(row[col] ?? '')}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Paper>
-    );
-  };
+  const renderCard = (row, idx, tableKey) => (
+    <Grid item xs={12} sm={6} md={4} key={idx}>
+      <Card variant="outlined">
+        <CardContent>
+          {Object.entries(row).map(([key, value]) => (
+            <Typography key={key} variant="body2" gutterBottom>
+              <strong>{getFriendlyLabel(tableKey, key)}:</strong> {String(value ?? '')}
+            </Typography>
+          ))}
+        </CardContent>
+      </Card>
+    </Grid>
+  );
 
   return (
     <Box sx={{ width: '100%' }}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs
-          value={tabIndex}
-          onChange={handleChange}
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          {tableNames.map((table, index) => (
-            <Tab
-              key={table}
-              label={getTableLabel(table)}
-              {...a11yProps(index)}
-            />
-          ))}
-        </Tabs>
-      </Box>
-      {tableNames.map((table, index) => (
-        <TabPanel key={table} value={tabIndex} index={index}>
-          {renderTable(data[table], table)}
-        </TabPanel>
-      ))}
+      <Tabs value={tabIndex} onChange={handleChangeTab}>
+        {tableNames.map((table, idx) => (
+          <Tab key={table} label={getTableLabel(table)} />
+        ))}
+      </Tabs>
+
+      {tableNames.map((table, idx) => {
+        const records = data[table] || [];
+        const totalPages = Math.ceil(records.length / PAGE_SIZE);
+        const paginated = records.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+        return (
+          <TabPanel key={table} value={tabIndex} index={idx}>
+            <Grid container spacing={2}>
+              {paginated.map((row, index) => renderCard(row, index, table))}
+            </Grid>
+            {totalPages > 1 && (
+              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                <Pagination count={totalPages} page={page} onChange={(e, val) => setPage(val)} />
+              </Box>
+            )}
+          </TabPanel>
+        );
+      })}
     </Box>
   );
 }

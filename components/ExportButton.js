@@ -6,8 +6,10 @@ import { saveAs } from 'file-saver';
 
 export default function ExportButton({ results }) {
   const handleExport = () => {
+    if (typeof results !== 'object' || !results) return;
+
     Object.entries(results).forEach(([tableName, records]) => {
-      if (!records || !records.length) return;
+      if (!records?.length) return;
 
       const columns = Object.keys(records[0]);
       const friendlyHeaders = columns.map(col => `"${getFriendlyLabel(tableName, col)}"`).join(',');
