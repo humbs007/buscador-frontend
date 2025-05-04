@@ -7,19 +7,13 @@ import {
 } from '@mui/material';
 import ResultTabs from './ResultTabs';
 import ExportButton from './ExportButton';
-import { getFriendlyLabel, getTableLabel } from '../lib/labels';
+import {
+  getTableLabel,
+  getFieldLabel,
+  getUnifiedFields,
+  getAllUnifiedKeys
+} from '../lib/db_schema_config';
 import { logInfo, logError } from '../lib/logger';
-
-const FIELD_MAPPINGS_TODAS = {
-  'CPF/CNPJ': ['CPF', 'PN_CPF', 'CNPJ', 'PN_CNPJ', 'cpf', 'cnpj', 'CNPJ_EMPRESA'],
-  'UF Geral': ['UF', 'PN_UF', 'ESTADO', 'UF_EMPRESA', 'cnpj_uf'],
-  'CIDADE Geral': ['CIDADE', 'Cidade', 'MUNICIPIO_EMPRESA', 'OL_Municipio_ObjLig'],
-  'Bairro Geral': ['BAIRRO', 'Distrito', 'OL_Bairro_ObjLig'],
-  'CONSUMOS META': [
-    'CONSUMO1', 'CONSUMO2', 'CONSUMO3', 'CONSUMO4', 'CONSUMO5',
-    'CONSUMO6', 'CONSUMO7', 'CONSUMO8', 'CONSUMO9', 'CONSUMO10'
-  ]
-};
 
 export default function SearchForm() {
   const [tables, setTables] = useState([]);
@@ -32,6 +26,7 @@ export default function SearchForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Carrega as tabelas
   useEffect(() => {
     axios.get('/api/v1/tables')
       .then(res => {
@@ -45,6 +40,7 @@ export default function SearchForm() {
       });
   }, []);
 
+  // Carrega os campos conforme tabela
   useEffect(() => {
     if (!selectedTable) {
       setFields([]);
@@ -61,21 +57,15 @@ export default function SearchForm() {
 
     axios.get(url)
       .then(res => {
-        let baseFields = res.data.fields || [];
+        const baseFields = res.data.fields || [];
 
         if (selectedTable === 'TODAS') {
-          const excludedFields = new Set(Object.values(FIELD_MAPPINGS_TODAS).flat());
-          const cleanedFields = baseFields.filter(field => !excludedFields.has(field));
-          const unifiedFields = Object.keys(FIELD_MAPPINGS_TODAS);
-          const merged = [...unifiedFields, ...cleanedFields];
-          setFields(merged);
-        } else if (selectedTable === 'table_meta') {
-          const unifiedFields = ['CONSUMOS META'];
-          const excluded = new Set(FIELD_MAPPINGS_TODAS['CONSUMOS META']);
-          const cleanedFields = baseFields.filter(field => !excluded.has(field));
-          setFields([...unifiedFields, ...cleanedFields]);
+          const unifiedKeys = getAllUnifiedKeys();
+          const allUnifiedFields = unifiedKeys.flatMap(k => getUnifiedFields(k));
+          const cleanedFields = baseFields.filter(f => !allUnifiedFields.includes(f));
+          setFields([...unifiedKeys, ...cleanedFields]);
         } else {
-          setFields([...new Set(baseFields)]);
+          setFields(baseFields);
         }
 
         logInfo(`Campos carregados para ${selectedTable}`, baseFields);
@@ -87,7 +77,7 @@ export default function SearchForm() {
   }, [selectedTable]);
 
   const resolveMappedFields = (field) => {
-    return FIELD_MAPPINGS_TODAS[field] || [field];
+    return getUnifiedFields(field);
   };
 
   const handleSearch = (type) => {
@@ -101,32 +91,21 @@ export default function SearchForm() {
       ? '/api/v1/search/option1'
       : '/api/v1/search/option2';
 
-    const mappedFields = resolveMappedFields(selectedField);
-
     const payload = type === 'fonte'
       ? {
           tables: selectedTable === 'TODAS'
             ? tables.filter(t => t !== 'TODAS')
             : [selectedTable],
-          fields: mappedFields,  // 🔥 envia todos os campos
+          fields: resolveMappedFields(selectedField),
           operator,
           term
         }
       : { number: term };
 
-    if (type === 'geral') {
-      setSelectedTable('TODAS');
-    }
-
     axios.post(endpoint, payload)
       .then(res => {
-        const data = res.data.results;
-        if (Array.isArray(data)) {
-          setResults({ anonymous: data });
-        } else {
-          setResults(data);
-        }
-        logInfo(`Busca ${type === 'fonte' ? 'por fonte' : 'geral'} retornou resultados`, data);
+        setResults(res.data.results || {});
+        logInfo(`Busca (${type}) retornou resultados`, res.data.results);
       })
       .catch(err => {
         setError('Erro ao buscar dados.');
@@ -145,9 +124,7 @@ export default function SearchForm() {
         <InputLabel>Tabela</InputLabel>
         <Select value={selectedTable} onChange={e => setSelectedTable(e.target.value)}>
           {tables.map((table, idx) => (
-            <MenuItem key={idx} value={table}>
-              {getTableLabel(table)}
-            </MenuItem>
+            <MenuItem key={idx} value={table}>{getTableLabel(table)}</MenuItem>
           ))}
         </Select>
       </FormControl>
@@ -161,7 +138,7 @@ export default function SearchForm() {
         >
           {fields.map((field, idx) => (
             <MenuItem key={idx} value={field}>
-              {getFriendlyLabel(selectedTable, field)}
+              {getFieldLabel(selectedTable, field)}
             </MenuItem>
           ))}
         </Select>

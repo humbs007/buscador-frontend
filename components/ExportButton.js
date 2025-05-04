@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Button } from '@mui/material';
-import { getFriendlyLabel, getTableLabel } from '../lib/labels';
+import { getTableLabel, getFieldLabel } from '../lib/db_schema_config';
 import { saveAs } from 'file-saver';
 
 export default function ExportButton({ results }) {
@@ -9,21 +9,14 @@ export default function ExportButton({ results }) {
     if (!results || typeof results !== 'object') return;
 
     Object.entries(results).forEach(([tableName, records]) => {
-      if (!Array.isArray(records) || !records.length) return;
+      if (!Array.isArray(records) || records.length === 0) return;
 
-      // Garante que todas as colunas existentes sejam capturadas
-      const allColumns = Array.from(
-        new Set(records.flatMap(rec => Object.keys(rec)))
-      );
-
-      const friendlyHeaders = allColumns
-        .map(col => `"${getFriendlyLabel(tableName, col)}"`).join(',');
+      const columns = Object.keys(records[0]);
+      const friendlyHeaders = columns
+        .map(col => `"${getFieldLabel(tableName, col)}"`).join(',');
 
       const rows = records.map(row =>
-        allColumns.map(col => {
-          const value = row[col] ?? '';
-          return `"${String(value).replace(/"/g, '""')}"`;
-        }).join(',')
+        columns.map(col => `"${String(row[col] ?? '').replace(/"/g, '""')}"`).join(',')
       );
 
       const csvContent = [friendlyHeaders, ...rows].join('\n');

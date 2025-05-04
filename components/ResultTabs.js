@@ -1,57 +1,57 @@
-import React from 'react';
+import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import {
-  Box, Tab, Tabs, Typography, Paper, Grid, Card, CardContent
+  Box, Tab, Tabs, Table, TableHead, TableRow,
+  TableCell, TableBody, Typography
 } from '@mui/material';
-import { getFriendlyLabel, getTableLabel } from '../lib/labels';
+import { getTableLabel, getFieldLabel } from '../lib/db_schema_config';
 
 export default function ResultTabs({ data }) {
-  const [tabIndex, setTabIndex] = React.useState(0);
+  const [tabIndex, setTabIndex] = useState(0);
   const tableNames = Object.keys(data || {});
 
-  const handleChange = (event, newIndex) => {
-    setTabIndex(newIndex);
-  };
-
-  const renderCard = (record, table, idx) => (
-    <Card key={`rec-${idx}`} sx={{ mb: 2, width: '100%' }} variant="outlined">
-      <CardContent>
-        <Grid container spacing={1}>
-          {Object.entries(record).map(([key, val], i) => (
-            <Grid key={`${key}-${i}`} item xs={12} sm={6} md={4}>
-              <Typography variant="subtitle2" color="text.secondary">
-                {getFriendlyLabel(table, key)}
-              </Typography>
-              <Typography variant="body2">{String(val ?? '')}</Typography>
-            </Grid>
-          ))}
-        </Grid>
-      </CardContent>
-    </Card>
-  );
+  if (tableNames.length === 0) {
+    return <Typography variant="body1" sx={{ mt: 2 }}>Nenhum resultado encontrado.</Typography>;
+  }
 
   return (
-    <Box>
+    <Box sx={{ mt: 4 }}>
       <Tabs
         value={tabIndex}
-        onChange={handleChange}
+        onChange={(e, newIndex) => setTabIndex(newIndex)}
         variant="scrollable"
         scrollButtons="auto"
-        sx={{ mb: 2 }}
       >
-        {tableNames.map((table, index) => (
-          <Tab key={table} label={getTableLabel(table)} />
+        {tableNames.map((table, idx) => (
+          <Tab key={idx} label={getTableLabel(table)} />
         ))}
       </Tabs>
 
-      {tableNames.map((table, index) => (
-        tabIndex === index && (
-          <Box key={`panel-${table}`}>
-            {data[table]?.length === 0
-              ? <Typography>Nenhum resultado.</Typography>
-              : data[table].map((rec, i) => renderCard(rec, table, i))}
-          </Box>
-        )
+      {tableNames.map((table, idx) => (
+        <Box key={idx} hidden={tabIndex !== idx} sx={{ mt: 2 }}>
+          {tabIndex === idx && (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  {Object.keys(data[table][0] || {}).map((field, i) => (
+                    <TableCell key={i}>{getFieldLabel(table, field)}</TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {data[table].map((row, rIdx) => (
+                  <TableRow key={rIdx}>
+                    {Object.keys(row).map((field, fIdx) => (
+                      <TableCell key={fIdx}>
+                        {String(row[field] ?? '')}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Box>
       ))}
     </Box>
   );
