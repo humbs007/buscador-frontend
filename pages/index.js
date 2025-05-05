@@ -1,8 +1,6 @@
-// frontend/pages/index.js
-
 import React from 'react';
 import Head from 'next/head';
-import { Container, Typography, Box, Paper } from '@mui/material';
+import { Container, Typography, Box, Paper, Divider } from '@mui/material';
 import SearchForm from '../components/SearchForm';
 
 export default function Home() {
@@ -14,16 +12,18 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Paper elevation={3} sx={{ p: 4 }}>
-          <Box sx={{ textAlign: 'center', mb: 3 }}>
-            <Typography variant="h4" component="h1" gutterBottom>
-              🔍 Buscador Inteligente V3
+      <Container maxWidth="lg" sx={{ mt: 6, mb: 4 }}>
+        <Paper elevation={4} sx={{ p: 5, borderRadius: 3 }}>
+          <Box sx={{ textAlign: 'center', mb: 4 }}>
+            <Typography variant="h3" component="h1" gutterBottom>
+              🔎 Buscador Inteligente V3
             </Typography>
-            <Typography variant="subtitle1">
-              Selecione uma fonte de dados, configure os filtros e consulte resultados em tempo real.
+            <Typography variant="subtitle1" color="text.secondary">
+              Consulte múltiplas fontes com filtros otimizados e exporte resultados em tempo real.
             </Typography>
           </Box>
+
+          <Divider sx={{ mb: 4 }} />
 
           <SearchForm />
         </Paper>

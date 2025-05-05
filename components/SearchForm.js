@@ -5,7 +5,7 @@ import {
   InputLabel, FormControl, CircularProgress,
   Typography, Alert
 } from '@mui/material';
-import ResultTabs from './ResultTabs';
+import ResultCards from './ResultCards'; // ✅ novo componente de exibição em cards
 import ExportButton from './ExportButton';
 import {
   getTableLabel,
@@ -26,7 +26,6 @@ export default function SearchForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Carrega as tabelas
   useEffect(() => {
     axios.get('/api/v1/tables')
       .then(res => {
@@ -40,7 +39,6 @@ export default function SearchForm() {
       });
   }, []);
 
-  // Carrega os campos conforme tabela
   useEffect(() => {
     if (!selectedTable) {
       setFields([]);
@@ -60,10 +58,8 @@ export default function SearchForm() {
         const baseFields = res.data.fields || [];
 
         if (selectedTable === 'TODAS') {
-          const unifiedKeys = getAllUnifiedKeys();
-          const allUnifiedFields = unifiedKeys.flatMap(k => getUnifiedFields(k));
-          const cleanedFields = baseFields.filter(f => !allUnifiedFields.includes(f));
-          setFields([...unifiedKeys, ...cleanedFields]);
+          // ✅ exibe apenas os campos unificados
+          setFields(baseFields);
         } else {
           setFields(baseFields);
         }
@@ -185,7 +181,7 @@ export default function SearchForm() {
 
       {isLoading && <CircularProgress />}
       {error && <Alert severity="error">{error}</Alert>}
-      {results && typeof results === 'object' && <ResultTabs data={results} />}
+      {results && typeof results === 'object' && <ResultCards data={results} />} {/* 👈 novo formato */}
     </Box>
   );
 }
