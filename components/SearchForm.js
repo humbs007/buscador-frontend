@@ -1,3 +1,4 @@
+// ✅ frontend/components/SearchForm.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
@@ -23,17 +24,27 @@ export default function SearchForm() {
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState('cards');
 
+  // 📦 Carrega tabelas com fallback inteligente
+  const getTables = async (attempt = 1) => {
+    try {
+      const res = await axios.get('/api/v1/tables');
+      const all = res.data.tables || [];
+      const filtered = all.filter(name => !name.includes('vidatoda') && !name.includes('plano_saude') && !name.includes('meta')); // ❌ sem model
+      setTables(['TODAS', ...filtered]);
+      logInfo('Tabelas carregadas com sucesso', filtered);
+    } catch (err) {
+      logError(`Erro tentativa ${attempt} ao carregar tabelas`, err);
+      if (attempt < 3) {
+        setTimeout(() => getTables(attempt + 1), 500 * attempt);
+      } else {
+        setTables(['TODAS']);
+        setError('Erro ao carregar as tabelas. Retente mais tarde.');
+      }
+    }
+  };
+
   useEffect(() => {
-    axios.get('/api/v1/tables')
-      .then(res => {
-        const data = res.data.tables || [];
-        setTables(['TODAS', ...data]);
-        logInfo('Tabelas carregadas com sucesso', data);
-      })
-      .catch(err => {
-        setError('Erro ao carregar as tabelas.');
-        logError('Erro ao carregar tabelas', err);
-      });
+    getTables();
   }, []);
 
   useEffect(() => {
@@ -52,8 +63,6 @@ export default function SearchForm() {
         const baseFields = res.data.fields || [];
         setFields(baseFields);
         logInfo(`Campos carregados para ${selectedTable}`, baseFields);
-
-        // 🧼 Reset filtros com novo campo vazio (evita valor inválido no Autocomplete)
         setFilters([{ logic: null, field: '', operator: '=', value: '' }]);
       })
       .catch(err => {
@@ -80,8 +89,12 @@ export default function SearchForm() {
   };
 
   const handleSearch = () => {
-    const validFilters = filters.filter(f => f.field && f.value);
-    if (!selectedTable || validFilters.length === 0) return;
+    const validFilters = filters.filter(f => f.field && f.value !== '');
+
+    if (!selectedTable || validFilters.length === 0) {
+      setError('Tabela ou filtros inválidos.');
+      return;
+    }
 
     const payload = {
       tables: selectedTable === 'TODAS'
