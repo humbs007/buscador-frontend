@@ -1,5 +1,4 @@
-// frontend/components/ResultsCards.js
-
+// frontend/components/ResultCards.js ✅
 import React from 'react';
 import { Box, Typography, Card, CardContent, Divider, Grid } from '@mui/material';
 import { getTableLabel, getFieldLabel } from '../lib/db_schema_config';
