@@ -1,4 +1,3 @@
-// ✅ frontend/components/SearchForm.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
@@ -24,12 +23,15 @@ export default function SearchForm() {
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState('cards');
 
-  // 📦 Carrega tabelas com fallback inteligente
   const getTables = async (attempt = 1) => {
     try {
       const res = await axios.get('/api/v1/tables');
       const all = res.data.tables || [];
-      const filtered = all.filter(name => !name.includes('vidatoda') && !name.includes('plano_saude') && !name.includes('meta')); // ❌ sem model
+      const filtered = all.filter(name =>
+        !name.includes('vidatoda') &&
+        !name.includes('plano_saude') &&
+        !name.includes('meta')
+      );
       setTables(['TODAS', ...filtered]);
       logInfo('Tabelas carregadas com sucesso', filtered);
     } catch (err) {
@@ -96,23 +98,29 @@ export default function SearchForm() {
       return;
     }
 
-    const payload = {
-      tables: selectedTable === 'TODAS'
-        ? tables.filter(t => t !== 'TODAS')
-        : [selectedTable],
-      filters: validFilters.map((f, i) => ({
+    const payloadFilters = validFilters.map((f, i) => {
+      const mapped = resolveMappedFields(f.field);
+      if (!mapped || mapped.length === 0) {
+        logError(`Campo '${f.field}' não tem mapeamento válido em UNIFIED_FIELDS`);
+      }
+      return {
         logic: i === 0 ? null : f.logic,
-        fields: resolveMappedFields(f.field),
+        fields: mapped,
         operator: f.operator,
         term: f.value
-      }))
-    };
+      };
+    });
 
     setIsLoading(true);
     setError('');
     setResults(null);
 
-    axios.post('/api/v1/search/advanced', payload)
+    axios.post('/api/v1/search/advanced', {
+      tables: selectedTable === 'TODAS'
+        ? tables.filter(t => t !== 'TODAS')
+        : [selectedTable],
+      filters: payloadFilters
+    })
       .then(res => {
         setResults(res.data.results || {});
         logInfo('Busca avançada retornou resultados', res.data.results);
