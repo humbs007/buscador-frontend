@@ -10,7 +10,11 @@ import { AddCircleOutline, RemoveCircleOutline } from '@mui/icons-material';
 import ResultCards from './ResultCards';
 import ResultTable from './ResultTable';
 import ExportButton from './ExportButton';
-import { getTableLabel, getFieldLabel, getUnifiedFields } from '../lib/db_schema_config';
+import {
+  getTableLabel,
+  getUnifiedFields,
+  getAllUnifiedKeys
+} from '../lib/db_schema_config';
 import { logInfo, logError } from '../lib/logger';
 
 export default function SearchForm() {
@@ -25,22 +29,19 @@ export default function SearchForm() {
 
   const getTables = async (attempt = 1) => {
     try {
-      const res = await axios.get('/api/v1/tables');
+      const res = await axios.get('http://127.0.0.1:8000/api/v1/tables');
       const all = res.data.tables || [];
-      const filtered = all.filter(name =>
-        !name.includes('vidatoda') &&
-        !name.includes('plano_saude') &&
-        !name.includes('meta')
-      );
-      setTables(['TODAS', ...filtered]);
-      logInfo('Tabelas carregadas com sucesso', filtered);
+      console.log('[DEBUG] Tabelas recebidas:', all);
+      const allTables = ['TODAS', ...all];
+      setTables(allTables);
+      logInfo('Tabelas carregadas com sucesso', allTables);
     } catch (err) {
       logError(`Erro tentativa ${attempt} ao carregar tabelas`, err);
       if (attempt < 3) {
         setTimeout(() => getTables(attempt + 1), 500 * attempt);
       } else {
         setTables(['TODAS']);
-        setError('Erro ao carregar as tabelas. Retente mais tarde.');
+        setError('Erro ao carregar as tabelas. Verifique se o backend está rodando.');
       }
     }
   };
@@ -57,23 +58,29 @@ export default function SearchForm() {
     }
 
     const url = selectedTable === 'TODAS'
-      ? '/api/v1/tables/fields/comuns'
-      : `/api/v1/tables/${selectedTable}/fields`;
+      ? 'http://127.0.0.1:8000/api/v1/tables/fields/comuns'
+      : `http://127.0.0.1:8000/api/v1/tables/${selectedTable}/fields`;
 
     axios.get(url)
       .then(res => {
         const baseFields = res.data.fields || [];
-        setFields(baseFields);
-        logInfo(`Campos carregados para ${selectedTable}`, baseFields);
+        const camposPadronizados = selectedTable === 'TODAS'
+          ? baseFields.map(f => f.toUpperCase())
+          : baseFields;
+        setFields(camposPadronizados);
+        logInfo(`Campos carregados para ${selectedTable}`, camposPadronizados);
         setFilters([{ logic: null, field: '', operator: '=', value: '' }]);
       })
       .catch(err => {
-        setError('Erro ao carregar campos.');
+        setError('Erro ao carregar campos. Verifique o backend.');
         logError(`Erro ao carregar campos da tabela ${selectedTable}`, err);
       });
   }, [selectedTable]);
 
-  const resolveMappedFields = (field) => getUnifiedFields(field);
+  const resolveMappedFields = (field) => {
+    const allUnified = getAllUnifiedKeys();
+    return allUnified.includes(field) ? getUnifiedFields(field) : [field];
+  };
 
   const handleAddFilter = () => {
     setFilters([...filters, { logic: 'AND', field: '', operator: '=', value: '' }]);
@@ -85,16 +92,15 @@ export default function SearchForm() {
   };
 
   const handleFilterChange = (index, key, value) => {
-    const newFilters = [...filters];
-    newFilters[index][key] = value;
-    setFilters(newFilters);
+    const updated = [...filters];
+    updated[index][key] = value;
+    setFilters(updated);
   };
 
   const handleSearch = () => {
     const validFilters = filters.filter(f => f.field && f.value !== '');
-
     if (!selectedTable || validFilters.length === 0) {
-      setError('Tabela ou filtros inválidos.');
+      setError('Selecione uma tabela e preencha pelo menos um filtro.');
       return;
     }
 
@@ -115,7 +121,7 @@ export default function SearchForm() {
     setError('');
     setResults(null);
 
-    axios.post('/api/v1/search/advanced', {
+    axios.post('http://127.0.0.1:8000/api/v1/search/advanced', {
       tables: selectedTable === 'TODAS'
         ? tables.filter(t => t !== 'TODAS')
         : [selectedTable],
@@ -126,7 +132,7 @@ export default function SearchForm() {
         logInfo('Busca avançada retornou resultados', res.data.results);
       })
       .catch(err => {
-        setError('Erro ao buscar dados.');
+        setError('Erro ao buscar dados. Veja os logs do backend para detalhes.');
         logError('Erro ao buscar dados avançados', err);
       })
       .finally(() => setIsLoading(false));
@@ -161,7 +167,7 @@ export default function SearchForm() {
 
           <Autocomplete
             options={fields}
-            getOptionLabel={(field) => getFieldLabel(selectedTable, field)}
+            getOptionLabel={(field) => field.toUpperCase()}
             isOptionEqualToValue={(option, value) => option === value}
             value={fields.includes(filter.field) ? filter.field : null}
             onChange={(e, newValue) => handleFilterChange(index, 'field', newValue)}
